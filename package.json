@@ -2,7 +2,7 @@
   "name": "accessibility-checker",
   "version": "0.0.1",
   "description": "",
-  "author": "",
+  "author": "Ime Samuel",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
@@ -26,6 +26,7 @@
     "cheerio": "^1.0.0",
     "cors": "^2.8.5",
     "fastify-multer": "^2.0.3",
+    "multer": "^1.4.5-lts.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1"
   },
