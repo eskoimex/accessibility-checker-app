@@ -2,6 +2,8 @@ import { Controller, Post, UploadedFile, UseInterceptors } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FileUploadService } from './file-upload.service';
 import { diskStorage } from 'multer';
+import * as fs from 'fs';
+import Issue  from '../interface/issue';
 
 @Controller('upload')
 export class FileUploadController {
@@ -16,8 +18,12 @@ export class FileUploadController {
       }),
     }),
   )
-  async uploadFile(@UploadedFile() file: Express.Multer.File) {
+  async uploadFile(@UploadedFile() file: Express.Multer.File): Promise<{
+    complianceScore: number;
+    issues: Issue[];
+}> {
     const analysis = await this.fileUploadService.analyzeFile(file.path);
+    fs.unlinkSync(file.path); // Cleanup uploaded file
     return analysis;
   }
 }
