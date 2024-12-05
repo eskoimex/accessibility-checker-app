@@ -9,7 +9,7 @@ async function bootstrap() {
   // Use CORS middleware
   app.use(
     cors({
-      origin: 'http://localhost:3000', // Allow requests from frontend
+      origin: 'https://accessibility-checker-app-fe.onrender.com', //'http://localhost:3000', // Allow requests from frontend
       methods: 'GET,POST',
       allowedHeaders: 'Content-Type',
     }),
