@@ -5,6 +5,7 @@ interface Issue {
     element: string;
     severity?: string;
     description?: string; //
+
   }
 
   export default Issue
