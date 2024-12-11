@@ -15,4 +15,7 @@ $ npm run start
 # watch mode
 $ npm run start:dev
 
+# test
+$ npm test
+
 ```
