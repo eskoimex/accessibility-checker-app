@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: nestjs-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - .:/src
+      - ./uploads:/src/uploads   # Mount the 'uploads' directory to persist files
+    command: ["npm", "run", "start:prod"] # Make sure to start the app in production mode
+
+volumes:
+  # Define volumes if needed, e.g., for logs or file storage
+  uploads:
