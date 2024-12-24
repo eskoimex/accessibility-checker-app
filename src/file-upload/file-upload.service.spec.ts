@@ -2,22 +2,20 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { FileUploadService } from './file-upload.service';
 import { HeadingAnalysisService } from '../helpers/heading-analysis.helpers';
 import { ImageAnalysisService } from '../helpers/image-analysis.helpers';
+import { UniqueIdAnalysisService } from '../helpers/unique-id-analysis';
+import { FormLabelAnalysisService } from '../helpers/form-label-analysis';
 import * as fs from 'fs';
 import * as cheerio from 'cheerio';
+import Issue from '../interface/issue';
 
-// Mock the fs.readFileSync function
-jest.mock('fs', () => ({
-  readFileSync: jest.fn(),
-}));
-
-// Mock the HeadingAnalysisService and ImageAnalysisService
-jest.mock('../helpers/heading-analysis.helpers');
-jest.mock('../helpers/image-analysis.helpers');
+jest.mock('fs'); // Mock the file system module
 
 describe('FileUploadService', () => {
-  let fileUploadService: FileUploadService;
+  let service: FileUploadService;
   let headingAnalysisService: HeadingAnalysisService;
   let imageAnalysisService: ImageAnalysisService;
+  let uniqueIdAnalysisService: UniqueIdAnalysisService;
+  let formLabelAnalysisService: FormLabelAnalysisService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -25,55 +23,89 @@ describe('FileUploadService', () => {
         FileUploadService,
         HeadingAnalysisService,
         ImageAnalysisService,
+        UniqueIdAnalysisService,
+        FormLabelAnalysisService,
       ],
     }).compile();
 
-    fileUploadService = module.get<FileUploadService>(FileUploadService);
+    service = module.get<FileUploadService>(FileUploadService);
     headingAnalysisService = module.get<HeadingAnalysisService>(HeadingAnalysisService);
     imageAnalysisService = module.get<ImageAnalysisService>(ImageAnalysisService);
+    uniqueIdAnalysisService = module.get<UniqueIdAnalysisService>(UniqueIdAnalysisService);
+    formLabelAnalysisService = module.get<FormLabelAnalysisService>(FormLabelAnalysisService);
   });
 
-  it('should be defined', () => {
-    expect(fileUploadService).toBeDefined();
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
-  it('should analyze file and return compliance score and issues', async () => {
-    const mockFilePath = './test-file.html';
-    const mockFileContent = '<html><head></head><body><h1>Test Heading</h1></body></html>';
+  describe('analyzeFile', () => {
+    it('should analyze file and return issues and compliance score', async () => {
+      // Mock file content
+      const mockFileContent = `
+        <html>
+          <head><title>Test</title></head>
+          <body>
+            <h1>Heading 1</h1>
+            <img src="image.jpg">
+            <input type="text" id="input1">
+          </body>
+        </html>
+      `;
+      jest.spyOn(fs, 'readFileSync').mockReturnValue(mockFileContent);
 
-    // Mock fs.readFileSync to return the mock content
-    (fs.readFileSync as jest.Mock).mockReturnValue(mockFileContent);
+      // Mock helper services
+      const headingIssues: Issue[] = [
+        { type: 'Skipped Heading Level', description: 'Heading skipped.', severity: 'low', element: '<h1>', suggestion:"anything" },
+      ];
+      const imageIssues: Issue[] = [
+        { type: 'Missing Alt Attribute', description: 'Alt attribute is missing.', severity: 'medium', element: '<img>', suggestion:"anything"},
+      ];
+      const uniqueIdIssues: Issue[] = [];
+      const formLabelIssues: Issue[] = [
+        { type: 'Missing Label', description: 'Input missing label.', severity: 'medium', element: '<input>', suggestion:"anything" },
+      ];
 
-    // Mock heading analysis and image analysis services
-    const mockHeadingIssues = [{ id: 1, description: 'Heading issue' }];
-    const mockImageIssues = [{ id: 2, description: 'Image issue' }];
-    (headingAnalysisService.analyzeHeadings as jest.Mock).mockReturnValue(mockHeadingIssues);
-    (imageAnalysisService.analyzeImages as jest.Mock).mockReturnValue(mockImageIssues);
+      jest.spyOn(headingAnalysisService, 'analyzeHeadings').mockReturnValue(headingIssues);
+      jest.spyOn(imageAnalysisService, 'analyzeImages').mockReturnValue(imageIssues);
+      jest.spyOn(uniqueIdAnalysisService, 'analyzeUniqueIds').mockReturnValue(uniqueIdIssues);
+      jest.spyOn(formLabelAnalysisService, 'analyzeFormLabels').mockReturnValue(formLabelIssues);
 
-    // Call the analyzeFile method
-    const result = await fileUploadService.analyzeFile(mockFilePath);
+      // Call the service method
+      const result = await service.analyzeFile('test.html');
 
-    // Assertions
-    expect(result.complianceScore).toBe(80);  // Based on 2 issues, score should be 100 - 2 * 10 = 80
-    expect(result.issues).toEqual([...mockHeadingIssues, ...mockImageIssues]);
-
-    // Ensure fs.readFileSync was called with the correct file path
-    expect(fs.readFileSync).toHaveBeenCalledWith(mockFilePath, 'utf-8');
-
-    // Ensure the analysis services were called correctly
-    expect(headingAnalysisService.analyzeHeadings).toHaveBeenCalled();
-    expect(imageAnalysisService.analyzeImages).toHaveBeenCalled();
-  });
-
-  it('should handle errors if the file is not readable', async () => {
-    // Mock fs.readFileSync to throw an error
-    (fs.readFileSync as jest.Mock).mockImplementation(() => {
-      throw new Error('File read error');
+      // Assertions
+      expect(result.complianceScore).toBe(70); // 100 - (10 for each issue)
+      expect(result.issues).toEqual([...headingIssues, ...imageIssues, ...formLabelIssues]);
     });
 
-    const mockFilePath = './test-file.html';
+    it('should throw an error if file cannot be read', async () => {
+      jest.spyOn(fs, 'readFileSync').mockImplementation(() => {
+        throw new Error('File not found');
+      });
 
-    // Call the analyzeFile method and expect it to throw an error
-    await expect(fileUploadService.analyzeFile(mockFilePath)).rejects.toThrow('File read error');
+      await expect(service.analyzeFile('nonexistent.html')).rejects.toThrow('File not found');
+    });
+  });
+
+  describe('calculateComplianceScore', () => {
+    it('should calculate the compliance score correctly', () => {
+      const mockIssues: Issue[] = [
+        { type: 'Issue1', description: 'Description1', severity: 'low', element: '<element1>', suggestion:"anything" },
+        { type: 'Issue2', description: 'Description2', severity: 'medium', element: '<element2>', suggestion:"anything" },
+        { type: 'Issue3', description: 'Description3', severity: 'high', element: '<element3>', suggestion:"anything" },
+      ];
+
+      const score = (service as any).calculateComplianceScore(mockIssues);
+
+      expect(score).toBe(70); // 100 - 10 (low) - 10 (medium) - 10 (high)
+    });
+
+    it('should return 100 if no issues exist', () => {
+      const mockIssues: Issue[] = [];
+      const score = (service as any).calculateComplianceScore(mockIssues);
+      expect(score).toBe(100);
+    });
+
   });
 });
